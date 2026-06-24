@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated figures + scan / post-fit / Hessian outputs (regenerate via Quickstart A)
+figs/
+scans/
+postfit/
+hessian_bma/
+hessian_distortion/
+*.png
+*.pdf
+
+# Per-epoch training metrics dumped next to checkpoints
+*_metrics.jsonl
+
+# Note: models/**/*.pt AND datasets/*.pt ARE committed (pretrained checkpoints + the toy dataset).

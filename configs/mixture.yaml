@@ -1,0 +1,83 @@
+runtime:
+  device: cuda
+
+paths:
+  dataset: ../datasets/dataset.pt
+  score_model: ../models/score_density.pt                    # base score flow (pre-sigmoid)
+  score_residual_model: ../models/score_density_residuals.pt # trained score residual
+  kin_residual_model:   ../models/kin_density_residuals.pt   # carries the kin base too
+  output_checkpoint: ../models/mixture_step1.pt
+
+
+# p(y | x, c): features = y (2D, UNBOUNDED pre-sigmoid score), context = c_onehot(2) + x(2D) = 4
+score_flow:
+  features: 2
+  context: 4
+  bins: 20
+  transforms: 3
+  hidden_features: [128, 128, 128]
+
+# p(x | c): features = x (2D), context = c_onehot(2)
+kin_flow:
+  features: 2
+  context: 2
+  bins: 20
+  transforms: 2
+  hidden_features: [128,128,128]
+
+
+# Score residual model — 2 nuisances: learns p(y|x,nu) in pre-sigmoid space.
+residual_score_model:
+  features_dim: 2
+  context_dim: 4
+  num_nuisances: 2
+  num_residual_layers: 2
+  hidden_features: [128,128,128]
+  type: flow
+
+# Kin residual model — 2 nuisances (nu_shift, nu_squeeze)
+residual_kin_model:
+  features_dim: 2
+  context_dim: 2
+  num_nuisances: 2
+  num_residual_layers: 1
+  hidden_features: [128,128]
+  type: flow
+
+
+mixture_model:
+  features_dim: 2
+  n_flavours: 2
+  num_nuisances: 2           # m_vector = [nu_shift, nu_squeeze]
+  norm_factors: [50000, 50000]
+  lnN_constraints: [0.05]
+  lnN_mix_matrix: [[1], [1]]
+  norm_nuisance_profile_mask: [false]
+  # Step 1: the shape nuisances are profiled jointly with T (global fit).
+  m_vector_profile_mask: [true, true]
+  fit_conditional_pdf: false
+
+
+transfer_model:
+  features_dim: 2
+  context_dim: 4
+  n_transforms: 2
+  nbins: 30
+  hidden_net: [128,128]
+  add_rotation: false
+
+plotting:
+  shape_nuisance_labels: ["nu_shift", "nu_squeeze"]
+  expected_nuisance: [0.5, -0.5]
+
+
+training:
+  batch_size: 1024
+  nepochs: 200
+  n_events: 100000
+  lr: 1.0e-4
+  lr_nuis: 0.004
+  nuis_accum_steps: 2
+  warmup_epochs: 0
+  add_distance_loss: false
+  lambda_distance: 0.001

@@ -1,0 +1,110 @@
+runtime:
+  device: cuda
+
+paths:
+  dataset: ../datasets/dataset.pt
+  score_density_state:  ../models/score_density_residuals.pt   # frozen score residual
+  kin_density_state:    ../models/kin_density_residuals.pt
+  # Bootstrap T-ensemble (from train_mixture.py --member N): the single shared
+  # residual is trained against ALL members (random member per batch).
+  init_mixture_ensemble: ../models/ensemble/mixture_boot*.pt
+  output_checkpoint:     ../models/mixture_ensemble_profiled.pt
+
+# p(y | x, c): features = y (2D, UNBOUNDED pre-sigmoid score), context = c_onehot(2) + x(2D) = 4
+score_flow:
+  features: 2
+  context: 4
+  bins: 20
+  transforms: 3
+  hidden_features: [128, 128, 128]
+
+# p(x | c): features = x (2D), context = c_onehot(2)
+kin_flow:
+  features: 2
+  context: 2
+  bins: 20
+  transforms: 2
+  hidden_features: [128,128,128]
+
+
+# Score residual model — 2 nuisances: learns p(y|x,nu) in pre-sigmoid space.
+residual_score_model:
+  features_dim: 2
+  context_dim: 4
+  num_nuisances: 2
+  num_residual_layers: 2
+  hidden_features: [128,128,128]
+  type: flow
+
+# Kin residual model — 2 nuisances (nu_shift, nu_squeeze)
+residual_kin_model:
+  features_dim: 2
+  context_dim: 2
+  num_nuisances: 2
+  num_residual_layers: 1
+  hidden_features: [128,128]
+  type: flow
+
+mixture_model:
+  features_dim: 2
+  n_flavours: 2
+  num_nuisances: 2
+  norm_factors: [50000, 50000]
+  lnN_constraints: [0.05]
+  lnN_mix_matrix: [[1], [1]]
+  norm_nuisance_profile_mask: [false]
+  m_vector_profile_mask: [true, true]
+  fit_conditional_pdf: false
+  # SINGLE ensemble anchor nu_0 = m_central, the residual's expansion centre,
+  # taken from the BMA MIXTURE scan over the ensemble:
+  #   likelihood_scan.py -c configs/mixture_ensemble.yaml \
+  #     --ensemble "models/ensemble/mixture_boot*.pt" --ensemble-mode rebased-bma --scan-2d
+  # then copy bestfit.json here.
+  m_vector_override: [+0.480001, -0.517788]
+
+transfer_model:
+  features_dim: 2
+  context_dim: 4
+  n_transforms: 2
+  nbins: 16
+  hidden_net: [256,256]
+  add_rotation: false
+
+residual_transfer_model:
+  features_dim: 2
+  context_dim: 4
+  num_nuisances: 2
+  num_residual_layers: 3
+  hidden_features: [256,256]
+  type: transform
+  nuisance_scales: [0.015, 0.015]
+  quadratic_damping: 0.01
+
+
+plotting:
+  shape_nuisance_labels: ["nu_shift", "nu_squeeze"]
+  expected_nuisance: [0.5, -0.5]
+
+
+training:
+  batch_size: 1024
+  nepochs: 300
+  n_events: 100000
+  val_fraction: 0.1   # held-out fraction for the per-epoch validation NLL (0 disables)
+  val_every: 3        # compute the validation NLL every N epochs
+  lr: 1e-4
+  add_distance_loss: false
+  lambda_distance: 0.001
+  # The shared residual must stay valid across the spread of per-member anchors {nu_hat_b}
+  # (off the common nu_0) plus the scan window.
+  range_m:
+    - [-0.3, 0.3]   # nu_shift   profiling window around the anchor (raw nu units)
+    - [-0.3, 0.3]   # nu_squeeze
+  m_sampling: quadrature
+  m_oversample: 6
+  validate_offgrid:
+    every: 25
+    mode: random
+    n_random: 64
+    n_events: 20000
+    batch_size: 20000
