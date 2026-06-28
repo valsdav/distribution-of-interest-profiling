@@ -8,8 +8,9 @@ measurement target is a learnable, invertible **Distribution of Interest (DoI)**
 over the nuisance space.
 
 > Scope: this release covers the **downstream profiling chain** — the mixture model, the two-step
-> (global + amortized) fit, the Poisson-bootstrap ensemble, the Bayesian-model-averaged (BMA)
-> likelihood scans, the post-fit bands, and the Hessian/eigenvector decomposition. The **upstream
+> (global + amortized) fit, the Poisson-bootstrap ensemble, the **averaging (bagging) of
+> likelihoods** over that ensemble, the post-fit bands, and the Hessian/eigenvector decomposition.
+> The **upstream
 > density models** (the frozen base flows `p(x|c)`, `p(y|x,c)` and their residual *input*
 > systematics) are the subject of a companion release,
 > [factorizable-normalizing-flow](https://github.com/valsdav/factorizable-normalizing-flow); their
@@ -34,10 +35,11 @@ observed data — the *Distribution of Interest*. Systematic uncertainties are h
   ν-averaged extended likelihood. One training run learns the full ν-response, so the profiling scan
   is replaced by an up-front cost. The composition `T_φ^ν̂ ∘ T_ψ(ν)` is the ν-dependent DoI.
 
-The ensemble of base transformations is combined by **Bayesian model averaging** (an equal-weight
-likelihood average, with per-member rebasing to avoid collapse onto a single replica), so a single
-likelihood scan carries **both** the statistical (ensemble spread) and systematic (residual
-response) uncertainty without a quadrature assumption. A Hessian at `ν̂` then exposes the
+The ensemble of base transformations is combined by **averaging (bagging) of likelihoods** — an
+equal-weight average of the per-member likelihoods (bootstrap aggregating), with per-member
+rebasing to avoid collapse onto a single replica — so a single likelihood scan carries **both** the
+statistical (ensemble spread) and systematic (residual response) uncertainty without a quadrature
+assumption. A Hessian at `ν̂` then exposes the
 **principal modes** of the uncertainty as orthogonal eigenvector morphings of the DoI.
 
 The toy (`generator.py`) injects two known nuisances — an anti-correlated centroid **shift**
@@ -74,12 +76,12 @@ distribution-of-interest-profiling/
 ├── train_mixture.py                # STEP 1: global fit + Poisson-bootstrap ensemble (--member N)
 ├── train_profiling.py              # STEP 2: amortized residual T_ψ(ν) over the ensemble
 │
-├── likelihood_scan.py              # 1D/2D BMA likelihood scans (ensemble)
+├── likelihood_scan.py              # 1D/2D averaged (bagged) likelihood scans (ensemble)
 ├── plot_postfit_ensemble.py        # post-fit distributions with stat / syst / total bands
 ├── plot_results.py                 # DoI transfer field + score histograms
 ├── plot_postfit.py                 # post-fit panel helpers (imported)
 ├── plot_residual_field.py          # residual displacement helpers (imported)
-├── hessian_bma.py                  # BMA post-fit Hessian + covariance ellipse overlay
+├── hessian_bma.py                  # averaged (bagged) post-fit Hessian + covariance ellipse overlay
 ├── visualize_hessian_distortion.py # principal systematic morphings along Hessian eigenvectors
 │
 ├── configs/
@@ -113,7 +115,7 @@ repository root:
 ```bash
 mkdir -p figs/scans figs/postfit
 
-# (1) STEP 1 — global-fit (mixture) BMA likelihood scan
+# (1) STEP 1 — global-fit (mixture) averaged (bagged) likelihood scan
 python likelihood_scan.py -c configs/mixture_ensemble.yaml \
     --ensemble "models/ensemble/mixture_boot*.pt" --ensemble-mode rebased-bma \
     --scan-2d --pairs 0,1 --scan2d-name scan2d_ensemble_mixture.npz --out-dir figs/scans
@@ -125,7 +127,7 @@ python plot_postfit_ensemble.py -c configs/mixture_ensemble.yaml \
 # (3) STEP 1 — the learned DoI transfer field
 python plot_results.py -c configs/mixture.yaml --ckpt models/mixture_step1.pt --out-dir figs
 
-# (4) STEP 2 — profiled BMA likelihood scan (also writes the scan npz used by 5 & 6)
+# (4) STEP 2 — profiled averaged (bagged) likelihood scan (also writes the scan npz used by 5 & 6)
 python likelihood_scan.py -c configs/profiling_ensemble.yaml \
     --ensemble "models/ensemble/mixture_boot*.pt" --ensemble-mode rebased-bma \
     --scan-2d --pairs 0,1 --scan2d-name scan2d_ensemble_profiled.npz --out-dir figs/scans
@@ -135,7 +137,7 @@ python plot_postfit_ensemble.py -c configs/profiling_ensemble.yaml \
     --ensemble "models/ensemble/mixture_boot*.pt" \
     --syst-scan2d figs/scans/scan2d_ensemble_profiled.npz --pair 0,1 --out-dir figs/postfit
 
-# (6) Orthogonal decomposition — BMA Hessian overlay (writes hessian_bma_ensemble_profiled.npz)
+# (6) Orthogonal decomposition — averaged (bagged) Hessian overlay (writes hessian_bma_ensemble_profiled.npz)
 python hessian_bma.py -c configs/profiling_ensemble.yaml \
     --ensemble "models/ensemble/mixture_boot*.pt" --ensemble-mode rebased-bma \
     --scan2d figs/scans/scan2d_ensemble_profiled.npz --pair 0,1 \
@@ -152,11 +154,11 @@ Each command writes both `.png` and `.pdf`. The mapping to the paper figures:
 | Command | Output file | Paper figure |
 |---|---|---|
 | 1 | `figs/scans/scan2d_members_rebased-bma_ensemble_mixture_nuis01` | Step-1 scan (per-member) |
-| 1 | `figs/scans/scan2d_rebased-bma_ensemble_mixture_nuis01` | Step-1 scan (combined BMA) |
+| 1 | `figs/scans/scan2d_rebased-bma_ensemble_mixture_nuis01` | Step-1 scan (combined average) |
 | 2 | `figs/postfit/postfit_distortion_xbinned_ensemble_mixture` | Step-1 post-fit |
 | 3 | `figs/mixture_step1_transfer_field` | Step-1 DoI transfer field¹ |
 | 4 | `figs/scans/scan2d_members_rebased-bma_ensemble_profiled_nuis01` | Step-2 scan (per-member) |
-| 4 | `figs/scans/scan2d_rebased-bma_ensemble_profiled_nuis01` | Step-2 scan (combined BMA) |
+| 4 | `figs/scans/scan2d_rebased-bma_ensemble_profiled_nuis01` | Step-2 scan (combined average) |
 | 5 | `figs/postfit/postfit_total_xbinned_ensemble_profiled` | Step-2 post-fit (stat+syst) |
 | 6 | `figs/scans/hessian_bma_overlay_ensemble_profiled` | Hessian / eigenvector overlay |
 | 7 | `figs/scans/hessian_distortion_profiled` | Principal systematic morphings |
@@ -165,7 +167,7 @@ Each command writes both `.png` and `.pdf`. The mapping to the paper figures:
 `mixture_step1_transfer_field` here (the paper's `full_mixture_model_v15_transfer_field`).
 
 The `--ensemble-mode rebased-bma` flag is the combination used in the paper (rebase each member to
-its own minimum, then BMA-average). The data hand-offs are explicit: the **step-2 scan** npz feeds
+its own minimum, then average — i.e. bag — the per-member likelihoods). The data hand-offs are explicit: the **step-2 scan** npz feeds
 both the step-2 post-fit (`--syst-scan2d`) and the Hessian (`--scan2d`/`--overlay-scan2d`), and the
 Hessian npz feeds the morphing plot (`--hessian-npz`). Increase `--steps-2d` for a finer scan
 surface.
@@ -197,7 +199,7 @@ python train_profiling.py -c configs/profiling_ensemble.yaml -s train      # -> 
 ```
 
 Before step 4, the residual's expansion anchor `ν₀` (`mixture_model.m_vector_override` in
-`configs/profiling_ensemble.yaml`) should be set to the best fit from the step-1 BMA mixture scan
+`configs/profiling_ensemble.yaml`) should be set to the best fit from the step-1 averaged (bagged) mixture scan
 (command 1 above writes a `bestfit` next to the scan). The single-model `configs/profiling.yaml`
 trains the non-ensemble step-2 residual (`models/mixture_profiled.pt`) the same way.
 
