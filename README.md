@@ -276,12 +276,24 @@ Paths are resolved relative to the config file (`../models`, `../datasets`). Key
 ## Citation
 
 ```bibtex
-@article{doi_profiling,
-  title  = {Profiling systematic uncertainties in Simulation-Based Inference
-            with Factorizable Normalizing Flows},
-  author = {Valsecchi, Davide and others},
+@article{Valsecchi:2026_doi_profiling,
+    author  = "Valsecchi, Davide and Doneg\`a, Mauro and Wallny, Rainer",
+    title   = "{Profiling systematic uncertainties in Simulation-Based Inference with Factorizanble Normalizing Flows}",
+    journal = "Submitted to Mach. Learn.: Sci. Technol.",
+    year    = "2026",
+    eprint        = "2602.13184",
+    url           = "https://arxiv.org/abs/2602.13184",
+    archivePrefix = "arXiv",
+    primaryClass  = "hep-th"
+}
+@article{Valsecchi:2026_factorizable_normalizing_flow,
+  title  = {Factorizable Normalizing Flows for parameter-dependent density morphing},
+  author = Valsecchi, Davide and Doneg\`a, Mauro and Wallny, Rainer",
   year   = {2026},
-  note   = {TODO: fill in once published}
+  eprint        = "2606.30489",
+  url           = "https://arxiv.org/abs/2606.30489",
+  archivePrefix = "arXiv",
+  primaryClass  = "stat.ML"
 }
 ```
 
