@@ -1,7 +1,7 @@
 # Profiling Systematics with Distributions of Interest
 
 Reference implementation accompanying the paper *Profiling systematic uncertainties in
-Simulation-Based Inference with Factorizable Normalizing Flows* (citation below). This repository
+Simulation-Based Inference with Factorizable Normalizing Flows* [arxiv:2602.13184](https://arxiv.org/abs/2602.13184) (citation below). This repository
 implements the **full unbinned profiled-likelihood fit** on a controllable 2-class toy: the
 measurement target is a learnable, invertible **Distribution of Interest (DoI)** transformation
 `T_φ`, and systematic uncertainties are **profiled** by an amortized residual flow `T_ψ(ν)` trained
