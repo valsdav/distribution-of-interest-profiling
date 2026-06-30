@@ -84,6 +84,9 @@ distribution-of-interest-profiling/
 ├── hessian_bma.py                  # averaged (bagged) post-fit Hessian + covariance ellipse overlay
 ├── visualize_hessian_distortion.py # principal systematic morphings along Hessian eigenvectors
 │
+├── coverage_test.py                # frequentist coverage: per-toy data→fit→scan driver + aggregate/calibrate
+├── compare_scans.py                # overlay many toys' scans + read the coverage fraction of ν̂
+│
 ├── configs/
 │   ├── dataset.yaml                # toy dataset generation (nominal + distorted "data")
 │   ├── base_flows.yaml             # (upstream) base-flow architecture + training
@@ -202,6 +205,51 @@ Before step 4, the residual's expansion anchor `ν₀` (`mixture_model.m_vector_
 `configs/profiling_ensemble.yaml`) should be set to the best fit from the step-1 averaged (bagged) mixture scan
 (command 1 above writes a `bestfit` next to the scan). The single-model `configs/profiling.yaml`
 trains the non-ensemble step-2 residual (`models/mixture_profiled.pt`) the same way.
+
+---
+
+## Quickstart C — frequentist coverage of the profiled fit
+
+A closure test: does the profiled interval on the nuisances `ν` cover the **injected truth** at the
+nominal rate? `coverage_test.py` runs the per-toy chain — regenerate the data at a fresh seed,
+profile, scan, and record whether the truth `ν` (`plotting.expected_nuisance`) falls inside the
+interval — for many toys; `compare_scans.py` then overlays the toy scans and prints the coverage
+fraction.
+
+Two regimes are supported via `--mode`:
+
+- **`frozen` (default)** — *conditional* coverage given the shipped apparatus: regenerate the data
+  only and scan it against the shipped global ensemble (`models/ensemble/mixture_boot*.pt`) + shared
+  profiled residual (`models/mixture_ensemble_profiled.pt`). **No training**, so it runs out of the
+  box from the pretrained checkpoints.
+- **`ensemble`** — *unconditional* cross-check: retrain `K` Poisson-bootstrap members + one shared
+  residual per toy, then scan. Expensive (a full fit per toy); needs a GPU.
+
+```bash
+# (1) run 100 toys against the frozen apparatus (each: regenerate data -> ensemble scan)
+python coverage_test.py --loop 0 100 --mode frozen --out-dir coverage/frozen
+
+# (2) aggregate: empirical coverage + the σ-inflation / Δχ² factor to reach nominal coverage
+python coverage_test.py --aggregate --calibrate-coverage --out-dir coverage/frozen
+
+# (3) overlay every toy's 2D scan and read the coverage fraction (1σ / 2σ vs the 68 / 95% target)
+python compare_scans.py --coverage-dir coverage/frozen \
+    --nuis-labels "ν_shift,ν_squeeze" --expected 0.5,-0.5 --no-surface \
+    --out-dir figs/coverage --tag frozen
+```
+
+Outputs: `coverage/frozen/toys/toy_<N>.json` (per-toy best fit, σ, `covered`, `pull`, joint
+coverage), `coverage/frozen/coverage_summary.json` + plots (after `--aggregate`), and the overlay /
+best-fit-scatter / coverage-by-stage figures from `compare_scans.py`. The same `--mode ensemble`
+loop produces a `coverage/ensemble` run that `coverage_test.py --compare coverage/frozen
+coverage/ensemble` lays side by side.
+
+Useful knobs: `--scan-half` / `--scan-steps-2d` (final scan window + resolution), `--scan-center
+truth` (centre each window on the injected truth so contours close — MC-only), and, for
+`compare_scans.py`, `--vs-mean` (separate bias from interval width) and `--levels` / `--levels-1d`
+(re-read coverage at a calibrated threshold from step 2). The chain stages are configured by the
+same YAML files as Quickstarts A/B — override them with `--dataset-config` / `--mixture-config` /
+`--profiling-config`.
 
 ---
 

@@ -11,6 +11,9 @@ hessian_distortion/
 *.png
 *.pdf
 
+# Coverage-test runs (per-toy datasets/checkpoints/scans + summaries; regenerate via Quickstart C)
+coverage/
+
 # Per-epoch training metrics dumped next to checkpoints
 *_metrics.jsonl
 
